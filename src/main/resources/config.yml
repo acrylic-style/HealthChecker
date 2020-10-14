@@ -1,0 +1,20 @@
+endpoint: "https://api.cloudflare.com/client/v4/"
+checkInterval: 30
+
+# API Token generated from the User Profile 'API Tokens' page
+# Generate the API token with "Edit zone DNS" from "API token templates".
+# Click "Create Token", and get the key.
+# Note: Set the "Zone Resources" to restrict what this token can do.
+# https://dash.cloudflare.com/profile/api-tokens
+apiToken: null
+
+# List of the zone
+zones:
+  - id: 'zoneId'
+    groups:
+      - name: 'example.com'
+        targets:
+          - 1.1.1.1:1234 # the port must be specified
+          - 1.0.0.1:1234
+          - 8.8.8.8:1234
+          - 8.8.4.4:1234

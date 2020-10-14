@@ -2,5 +2,5 @@
 .gradle/
 build/
 logs/
-config.yml
+/config.yml
 *.iml
