@@ -2,6 +2,7 @@ package xyz.acrylicstyle.healthChecker
 
 import org.apache.logging.log4j.LogManager
 import util.CollectionList
+import util.promise.Promise
 import util.yaml.YamlConfiguration
 import xyz.acrylicstyle.healthChecker.core.HealthCheckerConfig
 import xyz.acrylicstyle.healthChecker.core.ReportedException
@@ -35,15 +36,19 @@ object HealthChecker: Runnable {
             HealthCheckerConfig.linkedDNSRecordList.forEach { zone, map ->
                 map.forEach f@ { name, record ->
                     val results = CollectionList<Int>()
+                    val promises = CollectionList<Promise<*>>()
                     zone.groups[name]!!.targets.foreach { target, i ->
-                        try {
-                            if (isReachable(target.ip, target.port)) {
-                                results.add(i)
+                        promises.add(Promise.async {
+                            try {
+                                if (isReachable(target.ip, target.port)) {
+                                    results.add(i)
+                                }
+                            } catch (e: IllegalArgumentException) {
+                                throw ReportedException("Illegal port or IP (${target.ip}:${target.port})", e)
                             }
-                        } catch (e: IllegalArgumentException) {
-                            throw ReportedException("Illegal port or IP (${target.ip}:${target.port})", e)
-                        }
+                        })
                     }
+                    Promise.all(*promises.toTypedArray()).complete()
                     results.sort()
                     if (results.isNotEmpty()) {
                         val target = zone.groups[name]!!.targets[results[0]]
