@@ -57,6 +57,11 @@ tasks {
     }
 
     withType<Jar> {
+        manifest {
+            attributes(
+                "Main-Class" to "xyz.acrylicstyle.healthChecker.main.Main"
+            )
+        }
         from(configurations.getByName("implementation").apply { isCanBeResolved = true }.map { if (it.isDirectory) it else zipTree(it) })
     }
 }

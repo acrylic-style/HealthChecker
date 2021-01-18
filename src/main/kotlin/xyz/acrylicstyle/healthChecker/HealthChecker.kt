@@ -44,7 +44,9 @@ object HealthChecker: Runnable {
                             try {
                                 val pair = isReachable(target.ip, target.port)
                                 if (pair.key) {
-                                    results.add(AbstractMap.SimpleEntry(i, pair.value))
+                                    synchronized(results) {
+                                        results.add(AbstractMap.SimpleEntry(i, pair.value))
+                                    }
                                 }
                             } catch (e: IllegalArgumentException) {
                                 throw ReportedException("Illegal port or IP (${target.ip}:${target.port})", e)
@@ -52,17 +54,21 @@ object HealthChecker: Runnable {
                         })
                     }
                     Promise.all(*promises.toTypedArray()).complete()
-                    results.sortedWith(java.util.Map.Entry.comparingByKey())
-                    if (results.isNotEmpty()) {
-                        val pair = results[0]
-                        val target = zone.groups[name]!!.targets[pair.key]
-                        val newContent = target.constructContent(pair.value, record.type, record.content)
-                        if (newContent == record.content) return@f
-                        logger.info("Updating record ${record.id} (${record.name}) in zone ${zone.id} to $newContent (${target.ip})")
-                        if (record.type == "SRV") {
-                            CFPatchSRVDNSRecord(zone.id, record.id, record.ttl, target.ip, target.port).call()
-                        } else {
-                            CFPatchDNSRecord(zone.id, record.id, newContent, record.ttl).call()
+                    if (results.isEmpty()) {
+                        logger.info("All servers are down?")
+                    } else {
+                        if (results.nonNull().filter { e -> e?.key != null && e.value != null }
+                                .sortedWith(java.util.Map.Entry.comparingByKey()).isNotEmpty()) {
+                            val pair = results[0]
+                            val target = zone.groups[name]!!.targets[pair.key]
+                            val newContent = target.constructContent(pair.value, record.type, record.content)
+                            if (newContent == record.content) return@f
+                            logger.info("Updating record ${record.id} (${record.name}) in zone ${zone.id} to $newContent (${target.ip})")
+                            if (record.type == "SRV") {
+                                CFPatchSRVDNSRecord(zone.id, record.id, record.ttl, target.ip, target.port).call()
+                            } else {
+                                CFPatchDNSRecord(zone.id, record.id, newContent, record.ttl).call()
+                            }
                         }
                     }
                 }
