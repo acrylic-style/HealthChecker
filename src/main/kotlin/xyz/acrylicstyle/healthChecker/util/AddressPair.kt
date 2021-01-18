@@ -8,11 +8,11 @@ data class AddressPair(val ip: String, val port: Int) {
         }
     }
 
-    fun constructContent(type: String, oldContent: String): String {
+    fun constructContent(address: String, type: String, oldContent: String): String {
         if (type == "SRV") {
             val weight = oldContent.split("\t")[0]
-            return "$weight\t$port\t$ip"
+            return "$weight\t$port\t$address"
         }
-        return ip
+        return address
     }
 }

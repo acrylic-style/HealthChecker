@@ -10,6 +10,7 @@ import xyz.acrylicstyle.healthChecker.util.cloudflare.dns.CFPatchDNSRecord
 import xyz.acrylicstyle.healthChecker.util.cloudflare.dns.CFPatchSRVDNSRecord
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.util.AbstractMap
 
 object HealthChecker: Runnable {
     private val logger = LogManager.getLogger(HealthChecker::class.java)
@@ -18,15 +19,16 @@ object HealthChecker: Runnable {
 
     val config = YamlConfiguration("./config.yml").asObject()
 
-    private fun isReachable(host: String, port: Int): Boolean {
+    private fun isReachable(host: String, port: Int): AbstractMap.SimpleEntry<Boolean, String> {
         return try {
             val socket = Socket()
-            socket.connect(InetSocketAddress(host, port))
+            val addr = InetSocketAddress(host, port)
+            socket.connect(addr, 3000)
             val conn = socket.isConnected
             socket.close()
-            conn
+            AbstractMap.SimpleEntry(conn, addr.address.hostAddress)
         } catch (e: Exception) {
-            false
+            AbstractMap.SimpleEntry(false, null)
         }
     }
 
@@ -35,13 +37,14 @@ object HealthChecker: Runnable {
         while (true) {
             HealthCheckerConfig.linkedDNSRecordList.forEach { zone, map ->
                 map.forEach f@ { name, record ->
-                    val results = CollectionList<Int>()
+                    val results = CollectionList<AbstractMap.SimpleEntry<Int, String>>()
                     val promises = CollectionList<Promise<*>>()
                     zone.groups[name]!!.targets.foreach { target, i ->
                         promises.add(Promise.async {
                             try {
-                                if (isReachable(target.ip, target.port)) {
-                                    results.add(i)
+                                val pair = isReachable(target.ip, target.port)
+                                if (pair.key) {
+                                    results.add(AbstractMap.SimpleEntry(i, pair.value))
                                 }
                             } catch (e: IllegalArgumentException) {
                                 throw ReportedException("Illegal port or IP (${target.ip}:${target.port})", e)
@@ -49,12 +52,13 @@ object HealthChecker: Runnable {
                         })
                     }
                     Promise.all(*promises.toTypedArray()).complete()
-                    results.sort()
+                    results.sortedWith(java.util.Map.Entry.comparingByKey())
                     if (results.isNotEmpty()) {
-                        val target = zone.groups[name]!!.targets[results[0]]
-                        val newContent = target.constructContent(record.type, record.content)
+                        val pair = results[0]
+                        val target = zone.groups[name]!!.targets[pair.key]
+                        val newContent = target.constructContent(pair.value, record.type, record.content)
                         if (newContent == record.content) return@f
-                        logger.info("Updating record ${record.id} (${record.name}) in zone ${zone.id} to $newContent")
+                        logger.info("Updating record ${record.id} (${record.name}) in zone ${zone.id} to $newContent (${target.ip})")
                         if (record.type == "SRV") {
                             CFPatchSRVDNSRecord(zone.id, record.id, record.ttl, target.ip, target.port).call()
                         } else {

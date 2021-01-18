@@ -28,7 +28,7 @@ object Main {
         System.setOut(LoggedPrintStream(System.out))
         if (!File("./config.yml").exists()) {
             logger.info("Copying default config.yml")
-            Files.copy(Main::class.java.classLoader.getResourceAsStream("./config.yml"), File("./config.yml").toPath())
+            Files.copy(Main::class.java.classLoader.getResourceAsStream("./config.yml")!!, File("./config.yml").toPath())
         }
         val defaultCheckInterval = HealthChecker.config.getInt("checkInterval", HealthCheckerConfig.checkInterval)
         val defaultEndpoint = HealthChecker.config.getString("endpoint", HealthCheckerConfig.endpoint)
