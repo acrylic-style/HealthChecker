@@ -28,7 +28,7 @@ object Main {
         System.setOut(LoggedPrintStream(System.out))
         if (!File("./config.yml").exists()) {
             logger.info("Copying default config.yml")
-            Files.copy(Main::class.java.classLoader.getResourceAsStream("./config.yml")!!, File("./config.yml").toPath())
+            Files.copy(Main::class.java.classLoader.getResourceAsStream("/config.yml")!!, File("./config.yml").toPath())
         }
         val defaultCheckInterval = HealthChecker.config.getInt("checkInterval", HealthCheckerConfig.checkInterval)
         val defaultEndpoint = HealthChecker.config.getString("endpoint", HealthCheckerConfig.endpoint)
@@ -38,7 +38,7 @@ object Main {
         val spec2 = parser.accepts("endpoint").withRequiredArg().defaultsTo(defaultEndpoint)
         val spec3 = parser.accepts("apiToken").withRequiredArg().defaultsTo(defaultApiToken)
         val result = parser.parse(*args)
-        logger.info("HealthChecker v${Yaml().load<String>(Main::class.java.classLoader.getResourceAsStream("./version.yml"))} by acrylic-style")
+        logger.info("HealthChecker v${Yaml().load<String>(Main::class.java.classLoader.getResourceAsStream("/version.yml"))} by acrylic-style")
         if (result.has("help")) {
             logger.info("Options:")
             logger.info("    --help")
